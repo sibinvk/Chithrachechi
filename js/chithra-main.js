@@ -1,5 +1,5 @@
-// K.S. CHITHRA TRIBUTE WEBSITE - MAIN JAVASCRIPT
-// Updated for YOUR Google Sheets columns: Song, Movie, Year, Composer, CoSinger, Genre, YouTube Link, Type
+// K.S. CHITHRA TRIBUTE WEBSITE - FINAL VERSION
+// With embedded YouTube player and N/A for missing videos
 
 // ===== CONFIGURATION =====
 const GOOGLE_SHEETS_CONFIG = {
@@ -11,9 +11,6 @@ const GOOGLE_SHEETS_CONFIG = {
     other: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQF_EQ0k9tK0NMr_K4ig_fDGK7JGyJ-APUrm8jO00eb0VsKsHno2PUspQ2w6XayF_sIAkZbkyZkwGW0/pub?gid=91154675&single=true&output=csv'
 };
 
-// REPLACE WITH YOUR ACTUAL GOOGLE SHEETS PUBLISHED CSV URLs
-// Example: 'https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/export?format=csv&gid=0'
-
 // ===== GLOBAL STATE =====
 let allSongs = [];
 let filteredSongs = [];
@@ -23,11 +20,12 @@ let favorites = JSON.parse(localStorage.getItem('chithra_favorites')) || [];
 let playlists = JSON.parse(localStorage.getItem('chithra_playlists')) || [];
 let queue = JSON.parse(localStorage.getItem('chithra_queue')) || [];
 let currentSong = null;
-let audioElement = null;
+let currentVideoId = null;
 
 // ===== INITIALIZATION =====
 document.addEventListener('DOMContentLoaded', () => {
     initializeApp();
+    createVideoPlayer();
 });
 
 function initializeApp() {
@@ -46,6 +44,42 @@ function initializeApp() {
     setupEventListeners();
 }
 
+// ===== CREATE EMBEDDED VIDEO PLAYER =====
+function createVideoPlayer() {
+    // Check if player already exists
+    if (document.getElementById('videoPlayerModal')) return;
+    
+    const playerHTML = `
+        <div id="videoPlayerModal" class="video-modal" style="display: none;">
+            <div class="video-modal-content">
+                <div class="video-header">
+                    <div class="video-info">
+                        <h3 id="videoSongTitle">Song Title</h3>
+                        <p id="videoSongMeta">Movie • Composer</p>
+                    </div>
+                    <button class="video-close" onclick="closeVideoPlayer()">&times;</button>
+                </div>
+                <div class="video-container">
+                    <iframe id="youtubePlayer" 
+                            width="100%" 
+                            height="100%" 
+                            frameborder="0" 
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                            allowfullscreen>
+                    </iframe>
+                </div>
+                <div class="video-controls">
+                    <button class="video-btn" onclick="playPrevious()">⏮ Previous</button>
+                    <button class="video-btn" onclick="addCurrentToFavorites()">⭐ Favorite</button>
+                    <button class="video-btn" onclick="playNext()">Next ⏭</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', playerHTML);
+}
+
 // ===== HOME PAGE =====
 async function loadHomePage() {
     try {
@@ -57,7 +91,6 @@ async function loadHomePage() {
             const lang = languages[index];
             const count = songs.length;
             
-            // Update stat cards
             const statElement = document.getElementById(`${lang}Count`);
             if (statElement) statElement.textContent = count.toLocaleString();
             
@@ -65,12 +98,10 @@ async function loadHomePage() {
             if (totalElement) totalElement.textContent = `${count.toLocaleString()} Songs`;
         });
         
-        // Calculate total
         const totalSongs = results.reduce((sum, songs) => sum + songs.length, 0);
         const totalElement = document.getElementById('totalSongs');
         if (totalElement) totalElement.textContent = totalSongs.toLocaleString() + '+';
         
-        // Setup global search
         setupGlobalSearch(results.flat());
         
     } catch (error) {
@@ -206,7 +237,6 @@ function parseCSV(csv) {
     return lines.slice(1)
         .filter(line => line.trim())
         .map(line => {
-            // Handle quoted values that may contain commas
             const values = [];
             let current = '';
             let inQuotes = false;
@@ -232,6 +262,24 @@ function parseCSV(csv) {
         });
 }
 
+// ===== EXTRACT YOUTUBE VIDEO ID =====
+function extractYouTubeID(url) {
+    if (!url) return null;
+    
+    // Handle different YouTube URL formats
+    const patterns = [
+        /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
+        /^([a-zA-Z0-9_-]{11})$/
+    ];
+    
+    for (let pattern of patterns) {
+        const match = url.match(pattern);
+        if (match) return match[1];
+    }
+    
+    return null;
+}
+
 function setupLanguagePageListeners() {
     document.getElementById('searchInput')?.addEventListener('input', applyFilters);
     document.getElementById('decadeFilter')?.addEventListener('change', applyFilters);
@@ -242,7 +290,6 @@ function setupLanguagePageListeners() {
 }
 
 function populateFilters() {
-    // Composers
     const composers = [...new Set(allSongs.map(s => s.Composer).filter(Boolean))].sort();
     const composerFilter = document.getElementById('composerFilter');
     if (composerFilter) {
@@ -254,7 +301,6 @@ function populateFilters() {
         });
     }
     
-    // Genres
     const genres = [...new Set(allSongs.map(s => s.Genre).filter(Boolean))].sort();
     const genreFilter = document.getElementById('genreFilter');
     if (genreFilter) {
@@ -351,12 +397,14 @@ function renderSongs() {
     const end = start + songsPerPage;
     const pageSongs = filteredSongs.slice(start, end);
     
-    tbody.innerHTML = pageSongs.map((song, index) => `
+    tbody.innerHTML = pageSongs.map((song, index) => {
+        const hasVideo = song['YouTube Link'] && extractYouTubeID(song['YouTube Link']);
+        return `
         <tr>
             <td>
-                ${song['YouTube Link'] ? 
-                    `<button class="play-btn" onclick="playSong(${start + index})" title="Play on YouTube">▶</button>` :
-                    `<button class="play-btn" disabled title="No YouTube link">▶</button>`
+                ${hasVideo ? 
+                    `<button class="play-btn" onclick="playSong(${start + index})" title="Play Video">▶</button>` :
+                    `<span class="na-badge">N/A</span>`
                 }
             </td>
             <td>${song.Song || 'Unknown'}</td>
@@ -370,7 +418,7 @@ function renderSongs() {
                 <button class="action-btn" onclick="addToQueue(${start + index})" title="Add to Queue">📋</button>
             </td>
         </tr>
-    `).join('');
+    `}).join('');
     
     renderPagination();
 }
@@ -412,37 +460,45 @@ function changePage(page) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// ===== PLAYER FUNCTIONS =====
+// ===== VIDEO PLAYER FUNCTIONS =====
 function playSong(index) {
     currentSong = filteredSongs[index];
+    const videoId = extractYouTubeID(currentSong['YouTube Link']);
     
-    if (currentSong['YouTube Link']) {
-        // Open YouTube link in new tab
-        window.open(currentSong['YouTube Link'], '_blank');
-        showNotification(`Opening: ${currentSong.Song}`, 'success');
+    if (videoId) {
+        openVideoPlayer(videoId, currentSong);
     } else {
-        showNotification('No YouTube link available for this song', 'info');
-    }
-    
-    updatePlayer();
-    showPlayer();
-}
-
-function updatePlayer() {
-    if (!currentSong) return;
-    
-    const titleElement = document.getElementById('playerSongTitle');
-    const metaElement = document.getElementById('playerSongMeta');
-    
-    if (titleElement) titleElement.textContent = currentSong.Song || 'Unknown';
-    if (metaElement) {
-        metaElement.textContent = `${currentSong.Movie || 'Unknown'} • ${currentSong.Composer || 'Unknown'}`;
+        showNotification('No video available for this song', 'info');
     }
 }
 
-function showPlayer() {
-    const player = document.getElementById('audioPlayer');
-    if (player) player.style.display = 'flex';
+function openVideoPlayer(videoId, song) {
+    currentVideoId = videoId;
+    
+    // Update player info
+    document.getElementById('videoSongTitle').textContent = song.Song || 'Unknown';
+    document.getElementById('videoSongMeta').textContent = 
+        `${song.Movie || 'Unknown'} • ${song.Composer || 'Unknown'}`;
+    
+    // Set video source
+    const iframe = document.getElementById('youtubePlayer');
+    iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
+    
+    // Show modal
+    document.getElementById('videoPlayerModal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function closeVideoPlayer() {
+    const modal = document.getElementById('videoPlayerModal');
+    const iframe = document.getElementById('youtubePlayer');
+    
+    // Stop video
+    iframe.src = '';
+    
+    // Hide modal
+    modal.style.display = 'none';
+    document.body.style.overflow = 'auto';
 }
 
 // ===== FAVORITES FUNCTIONS =====
@@ -457,6 +513,18 @@ function addToFavorites(index) {
     favorites.push(song);
     localStorage.setItem('chithra_favorites', JSON.stringify(favorites));
     showNotification('Added to favorites!', 'success');
+}
+
+function addCurrentToFavorites() {
+    if (currentSong) {
+        if (favorites.some(fav => fav.Song === currentSong.Song && fav.Movie === currentSong.Movie)) {
+            showNotification('Already in favorites!', 'info');
+            return;
+        }
+        favorites.push(currentSong);
+        localStorage.setItem('chithra_favorites', JSON.stringify(favorites));
+        showNotification('Added to favorites!', 'success');
+    }
 }
 
 function addToQueue(index) {
@@ -482,7 +550,9 @@ function loadFavorites() {
         return;
     }
     
-    container.innerHTML = favorites.map((song, index) => `
+    container.innerHTML = favorites.map((song, index) => {
+        const hasVideo = song['YouTube Link'] && extractYouTubeID(song['YouTube Link']);
+        return `
         <div class="favorite-card">
             <div class="favorite-info">
                 <h3>${song.Song}</h3>
@@ -495,20 +565,22 @@ function loadFavorites() {
                 </div>
             </div>
             <div class="favorite-actions">
-                ${song['YouTube Link'] ? 
+                ${hasVideo ? 
                     `<button class="action-btn" onclick="playFavorite(${index})">▶ Play</button>` : 
-                    ''}
+                    `<span class="na-badge">N/A</span>`
+                }
                 <button class="action-btn" onclick="removeFavorite(${index})">🗑️ Remove</button>
             </div>
         </div>
-    `).join('');
+    `}).join('');
 }
 
 function playFavorite(index) {
     const song = favorites[index];
-    if (song['YouTube Link']) {
-        window.open(song['YouTube Link'], '_blank');
-        showNotification(`Playing: ${song.Song}`, 'success');
+    const videoId = extractYouTubeID(song['YouTube Link']);
+    if (videoId) {
+        currentSong = song;
+        openVideoPlayer(videoId, song);
     }
 }
 
@@ -530,7 +602,6 @@ async function loadStatistics() {
 }
 
 function displayStatistics(allSongs, languageData, languages) {
-    // Language-wise stats
     const languageStatsDiv = document.getElementById('languageStats');
     if (languageStatsDiv) {
         languageStatsDiv.innerHTML = languageData.map((songs, index) => `
@@ -542,7 +613,6 @@ function displayStatistics(allSongs, languageData, languages) {
         `).join('');
     }
     
-    // Decade-wise breakdown
     const decades = {};
     allSongs.forEach(song => {
         if (song.Year) {
@@ -599,35 +669,37 @@ function showNotification(message, type = 'info') {
 }
 
 function setupEventListeners() {
-    // Player controls
-    document.getElementById('playPauseBtn')?.addEventListener('click', togglePlayPause);
-    document.getElementById('prevBtn')?.addEventListener('click', playPrevious);
-    document.getElementById('nextBtn')?.addEventListener('click', playNext);
-}
-
-function togglePlayPause() {
-    if (currentSong && currentSong['YouTube Link']) {
-        window.open(currentSong['YouTube Link'], '_blank');
-    }
+    // Close modal on click outside
+    window.addEventListener('click', (e) => {
+        const modal = document.getElementById('videoPlayerModal');
+        if (e.target === modal) {
+            closeVideoPlayer();
+        }
+    });
+    
+    // Close modal on Escape key
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeVideoPlayer();
+        }
+    });
 }
 
 function playPrevious() {
-    if (queue.length > 0) {
-        const song = queue.shift();
-        if (song['YouTube Link']) {
-            window.open(song['YouTube Link'], '_blank');
-        }
-        localStorage.setItem('chithra_queue', JSON.stringify(queue));
+    const currentIndex = filteredSongs.findIndex(s => s === currentSong);
+    if (currentIndex > 0) {
+        playSong(currentIndex - 1);
+    } else {
+        showNotification('This is the first song', 'info');
     }
 }
 
 function playNext() {
-    if (queue.length > 0) {
-        const song = queue.shift();
-        if (song['YouTube Link']) {
-            window.open(song['YouTube Link'], '_blank');
-        }
-        localStorage.setItem('chithra_queue', JSON.stringify(queue));
+    const currentIndex = filteredSongs.findIndex(s => s === currentSong);
+    if (currentIndex < filteredSongs.length - 1) {
+        playSong(currentIndex + 1);
+    } else {
+        showNotification('This is the last song', 'info');
     }
 }
 
@@ -635,6 +707,10 @@ function playNext() {
 window.playSong = playSong;
 window.playFavorite = playFavorite;
 window.addToFavorites = addToFavorites;
+window.addCurrentToFavorites = addCurrentToFavorites;
 window.addToQueue = addToQueue;
 window.changePage = changePage;
 window.removeFavorite = removeFavorite;
+window.closeVideoPlayer = closeVideoPlayer;
+window.playPrevious = playPrevious;
+window.playNext = playNext;
