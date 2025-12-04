@@ -32,7 +32,7 @@
     <!-- Search and Filters -->
     <div class="filters-section">
         <div class="search-box">
-            <input type="text" id="searchInput" placeholder="🔍 Search songs, movies, music directors...">
+            <input type="text" id="searchInput" placeholder="🔍 Search songs, movies, composers, co-singers, genre...">
         </div>
         
         <div class="filter-row">
@@ -45,8 +45,12 @@
                 <option value="2020s">2020s</option>
             </select>
             
-            <select id="directorFilter" class="filter-select">
-                <option value="">All Music Directors</option>
+            <select id="composerFilter" class="filter-select">
+                <option value="">All Composers</option>
+            </select>
+            
+            <select id="genreFilter" class="filter-select">
+                <option value="">All Genres</option>
             </select>
             
             <select id="sortBy" class="filter-select">
@@ -69,8 +73,10 @@
                     <th>Play</th>
                     <th>Song Name</th>
                     <th>Movie</th>
-                    <th>Music Director</th>
+                    <th>Composer</th>
+                    <th>Co-Singer</th>
                     <th>Year</th>
+                    <th>Genre</th>
                     <th>Actions</th>
                 </tr>
             </thead>
