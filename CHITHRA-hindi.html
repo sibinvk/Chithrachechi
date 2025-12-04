@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hindi Songs - K.S. Chithra</title>
+    <link rel="stylesheet" href="css/chithra-styles.css">
+</head>
+<body>
+    <header>
+        <nav>
+            <a href="index.html" class="logo">🎵 K.S. Chithra</a>
+            <ul class="nav-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="malayalam.html">Malayalam</a></li>
+                <li><a href="tamil.html">Tamil</a></li>
+                <li><a href="telugu.html">Telugu</a></li>
+                <li><a href="kannada.html">Kannada</a></li>
+                <li><a href="hindi.html">Hindi</a></li>
+                <li><a href="other.html">Other</a></li>
+                <li><a href="statistics.html">Statistics</a></li>
+                <li><a href="favorites.html">Favorites</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <div class="page-header">
+        <h1>🎵 Hindi Songs</h1>
+        <p class="subtitle" id="songCount">Loading songs...</p>
+    </div>
+
+    <div class="filters-section">
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="🔍 Search songs, movies, music directors...">
+        </div>
+        
+        <div class="filter-row">
+            <select id="decadeFilter" class="filter-select">
+                <option value="">All Decades</option>
+                <option value="1980s">1980s</option>
+                <option value="1990s">1990s</option>
+                <option value="2000s">2000s</option>
+                <option value="2010s">2010s</option>
+                <option value="2020s">2020s</option>
+            </select>
+            
+            <select id="directorFilter" class="filter-select">
+                <option value="">All Music Directors</option>
+            </select>
+            
+            <select id="sortBy" class="filter-select">
+                <option value="year-desc">Year (Newest First)</option>
+                <option value="year-asc">Year (Oldest First)</option>
+                <option value="song-asc">Song Name (A-Z)</option>
+                <option value="movie-asc">Movie Name (A-Z)</option>
+            </select>
+            
+            <button id="clearFilters" class="clear-btn">Clear Filters</button>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <div id="loading" class="loading">Loading Hindi songs...</div>
+        <table id="songsTable" style="display: none;">
+            <thead>
+                <tr>
+                    <th>Play</th>
+                    <th>Song Name</th>
+                    <th>Movie</th>
+                    <th>Music Director</th>
+                    <th>Year</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="songsTableBody"></tbody>
+        </table>
+        <div id="noResults" class="no-results" style="display: none;">
+            No songs found. Try different filters.
+        </div>
+    </div>
+
+    <div class="pagination" id="pagination"></div>
+
+    <footer>
+        <p><strong>A Tribute to the Legendary K.S. Chithra</strong></p>
+        <p>Hindi Songs Collection</p>
+    </footer>
+
+    <script src="js/chithra-main.js"></script>
+    <script>
+        window.currentLanguage = 'hindi';
+    </script>
+</body>
+</html>
